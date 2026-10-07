@@ -60,12 +60,12 @@ func newContext(ctx context.Context, options ...contextOption) *Context {
 	}
 
 	var c *Context
-	if ctx, ok := ctx.(*Context); !ok {
+	if existing, ok := ctx.(*Context); !ok {
 		c = &Context{
 			Context: ctx,
 		}
 	} else {
-		c = ctx
+		c = existing
 	}
 
 	c.Outputs = opts.outputs
