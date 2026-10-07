@@ -2,6 +2,7 @@ package trigger
 
 import (
 	"bytes"
+	"encoding/json"
 	"io"
 	"mime/multipart"
 	"net/http"
@@ -10,10 +11,45 @@ import (
 	"testing"
 	"time"
 
-	"github.com/potatoattack/azfunc/data"
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
+	"github.com/potatoattack/azfunc/data"
 )
+
+func TestNewHTTP_NormalizesHeaders(t *testing.T) {
+	for _, headers := range []struct{ authorization, contentType string }{
+		{"authorization", "content-type"},
+		{"Authorization", "Content-Type"},
+		{"AUTHORIZATION", "CONTENT-TYPE"},
+	} {
+		t.Run(headers.authorization, func(t *testing.T) {
+			payload, err := json.Marshal(map[string]any{
+				"Data": map[string]any{
+					"req": map[string]any{
+						"Method": http.MethodPost,
+						"Headers": map[string][]string{
+							headers.authorization: {"Bearer fixture"},
+							headers.contentType:   {"application/json"},
+						},
+					},
+				},
+			})
+			if err != nil {
+				t.Fatal(err)
+			}
+			got, err := NewHTTP(&http.Request{Body: io.NopCloser(bytes.NewReader(payload))})
+			if err != nil {
+				t.Fatal(err)
+			}
+			if authorization := got.Headers.Get("Authorization"); authorization != "Bearer fixture" {
+				t.Fatalf("Authorization header = %q; want fixture value", authorization)
+			}
+			if contentType := got.Headers.Get("Content-Type"); contentType != "application/json" {
+				t.Fatalf("Content-Type header = %q; want application/json", contentType)
+			}
+		})
+	}
+}
 
 func TestNewHTTP(t *testing.T) {
 	var tests = []struct {
